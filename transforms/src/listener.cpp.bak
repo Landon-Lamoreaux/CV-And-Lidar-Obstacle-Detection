@@ -1,0 +1,57 @@
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/Twist.h>
+#include <message_filters/subscriber.h>
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <tf2/convert.h>
+#include <tf2_ros/message_filter.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
+#include <pcl_ros/transforms.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <ros/console.h>
+
+void transform(sensor_msgs::PointCloud2 cloudIn);
+
+
+ros::Publisher *pub;
+
+int main(int argc, char** argv)
+{
+    ros::init(argc, argv, "camera1Post");
+    ros::NodeHandle node;
+    ros::Publisher camera1 = node.advertise<sensor_msgs::PointCloud2>("camera1Post", 10);
+    pub = &camera1;
+
+    ros::Subscriber camera = node.subscribe("camera1Pre", 20, transform);
+    ros::spin();
+
+    return 0;
+}
+
+
+void transform(sensor_msgs::PointCloud2 cloudIn)
+{
+    tf2_ros::Buffer tfbuffer;
+    //tf2_ros::TransformListener listener(tfbuffer);  
+    tf::TransformListener listener;  
+    sensor_msgs::PointCloud2 cloudOut;
+    tf::StampedTransform transformMe;
+
+    geometry_msgs::TransformStamped transform;
+
+    //transform = tfbuffer.lookupTransform("map", "camera1", cloudIn.header.stamp, ros::Duration(0.1));
+
+    listener.waitForTransform("map", "camera1", cloudIn.header.stamp, ros::Duration(4));
+
+    //listener.lookupTransform("map", "camera1", cloudIn.header.stamp, transformMe);
+    //transform = tfbuffer.lookupTransform("map", "camera1", ros::Time(0));
+    pcl_ros::transformPointCloud("map", cloudIn, cloudOut, listener);
+
+    //tf2::doTransform(cloudIn, cloudOut, transform);
+    pub->publish(cloudOut);
+}
