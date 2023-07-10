@@ -238,6 +238,3 @@ finally:
     pipeline1.stop()
     pipeline2.stop()
     destroyAllWindows()
-
-# Run this to start the code with arguments of the cameras serial numbers. Change those if you have different cameras.
-# ./alignCamera2.py 838212072465 944622074563
