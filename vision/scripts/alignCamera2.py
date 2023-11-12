@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 # Importing the pyrealsense2 library functions.
-import pyrealsense2.pyrealsense2 as rs
-from pyrealsense2.pyrealsense2 import rs2_deproject_pixel_to_point
-from pyrealsense2.pyrealsense2 import stream
-from pyrealsense2.pyrealsense2 import pipeline
-from pyrealsense2.pyrealsense2 import config
-from pyrealsense2.pyrealsense2 import format
-from pyrealsense2.pyrealsense2 import align
+import pyrealsense2 as rs
+from pyrealsense2 import rs2_deproject_pixel_to_point
+from pyrealsense2 import stream
+from pyrealsense2 import pipeline
+from pyrealsense2 import config
+from pyrealsense2 import format
+from pyrealsense2 import align
 
 # Import Numpy for easy array manipulation.
 import numpy as np
@@ -238,3 +238,7 @@ finally:
     pipeline1.stop()
     pipeline2.stop()
     destroyAllWindows()
+
+
+# Start the program by ./alignCamera2.py <camera 1 serial number> <camera 2 serial number>
+# A roscore needs to be running before this program is started.
