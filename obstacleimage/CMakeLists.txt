@@ -1,5 +1,12 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(obstacleimage)
+
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -7,21 +14,22 @@ project(obstacleimage)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  tf2_ros
-  sensor_msgs
-  geometry_msgs
-  tf2
-  tf2_msgs
-  tf2_sensor_msgs
-  tf
-  laser_geometry
-  pcl_ros
-  pcl_conversions
-)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(laser_geometry REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_msgs REQUIRED)
+find_package(tf2_sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+# find_package(tf REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -112,12 +120,12 @@ find_package(catkin REQUIRED COMPONENTS
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
+#catkin_package(
   #INCLUDE_DIRS include
   #LIBRARIES obstacleimage
-  CATKIN_DEPENDS sensor_msgs
+  #CATKIN_DEPENDS sensor_msgs
   #DEPENDS system_lib
-)
+#)
 
 ###########
 ## Build ##
@@ -125,7 +133,9 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(${catkin_INCLUDE_DIRS})
+# include_directories(${catkin_INCLUDE_DIRS})
+#include_directories(include ${Boost_INCLUDE_DIRS})
+include_directories(include)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -142,6 +152,22 @@ include_directories(${catkin_INCLUDE_DIRS})
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/obstacleimage_node.cpp)
 add_executable(imageCreation src/imageCreation.cpp)
+
+ament_target_dependencies(imageCreation
+  rclcpp
+  rclpy
+  std_msgs
+  sensor_msgs
+  tf2
+#  tf
+  tf2_ros
+  tf2_msgs
+  tf2_sensor_msgs
+  geometry_msgs
+  laser_geometry
+  pcl_ros
+  pcl_conversions
+  OpenCV)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -225,3 +251,9 @@ target_link_libraries(imageCreation
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+install(TARGETS imageCreation
+  DESTINATION lib/${PROJECT_NAME})
+ament_export_include_directories(include)
+ament_export_dependencies(sensor_msgs)
+ament_package()

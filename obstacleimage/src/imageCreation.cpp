@@ -1,17 +1,19 @@
-#include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/Twist.h>
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include <message_filters/subscriber.h>
-#include <std_msgs/UInt8MultiArray.h>
-#include <tf/transform_listener.h>
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <laser_geometry/laser_geometry.h>
+#include "std_msgs/msg/u_int8_multi_array.hpp"
+// #include <tf/transform_listener.h>
+// #include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "laser_geometry/laser_geometry.hpp"
 #include <tf2/convert.h>
 #include <tf2_ros/message_filter.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include <tf2_ros/transform_listener.h>
-#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
-#include <pcl_ros/point_cloud.h>
+#include "tf2_sensor_msgs/tf2_sensor_msgs.hpp"
+#include <tf2/buffer_core.h>
+// #include "pcl_ros/include/pcl_ros/point_cloud.hpp"
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_types.h>
 #include <chrono>
@@ -19,6 +21,8 @@
 #include <vector>
 #include <stdio.h>
 #include <iostream>
+
+using std::placeholders::_1;
 
 // Command to start LIDAR ros node:
 // rosrun urg_node urg_node
@@ -36,58 +40,69 @@ const int laserMaxVal = 860;
 
 uint8_t course[height][width];
 
-class MapCreation
+class MapCreation : public rclcpp::Node
 {
     public:
     MapCreation();
 
     ~MapCreation();
 
-    void camera1Callback(sensor_msgs::PointCloud2 cloudIn);
+    void camera1Callback(sensor_msgs::msg::PointCloud2 cloudIn);
 
-    void camera2Callback(sensor_msgs::PointCloud2 cloudIn);
+    void camera2Callback(sensor_msgs::msg::PointCloud2 cloudIn);
 
-    void laserCallback(sensor_msgs::LaserScan laserIn);
+    void laserCallback(sensor_msgs::msg::LaserScan laserIn);
 
     void createList();
 
     private:
     std::chrono::high_resolution_clock::time_point cStart;
-    ros::NodeHandle node;
-    sensor_msgs::PointCloud2 camera1Cloud;
-    sensor_msgs::PointCloud2 camera2Cloud;
-    sensor_msgs::PointCloud2 laserCloud;
+    // ros::NodeHandle node;
+    // auto node = rclcpp::Node::make_shared("obstacleImageGeneration");
+    sensor_msgs::msg::PointCloud2 camera1Cloud;
+    sensor_msgs::msg::PointCloud2 camera2Cloud;
+    sensor_msgs::msg::PointCloud2 laserCloud;
 
     pcl::PointCloud<pcl::PointXYZ> pclLaserCloud;
     pcl::PointCloud<pcl::PointXYZ> pclCamera1Cloud;
     pcl::PointCloud<pcl::PointXYZ> pclCamera2Cloud;
     pcl::PointCloud<pcl::PointXYZ> obstacleCloud;
-    sensor_msgs::PointCloud2 rosCloud;
+    sensor_msgs::msg::PointCloud2 rosCloud;
 
-    std_msgs::UInt8MultiArray imageArray;
+    std_msgs::msg::UInt8MultiArray imageArray;
     std::vector<uint8_t> imageVec;
 
-    tf::TransformListener tfListener;
+    std::unique_ptr<tf2_ros::Buffer> tfBuffer = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    std::shared_ptr<tf2_ros::TransformListener> tfListener = std::make_shared<tf2_ros::TransformListener>(*tfBuffer);
     laser_geometry::LaserProjection projector;
-    //ros::Publisher laserCloudPub = node.advertise<sensor_msgs::PointCloud2>("laserCloud", 10):q
-    ;
-    ros::Publisher laserCloudPub = node.advertise<pcl::PointCloud<pcl::PointXYZ>>("laserCloud", 10);
-    ros::Publisher obstacles = node.advertise<std_msgs::UInt8MultiArray>("obstacleImage", 10);
-    ros::Publisher ROSCloud = node.advertise<sensor_msgs::PointCloud2>("obstacleList", 10);
+    //ros::Publisher laserCloudPub = node.advertise<sensor_msgs::PointCloud2>("laserCloud", 10)
+
+    // rclcpp::Publisher<pcl::PointCloud<pcl::PointXYZ>>::SharedPtr laserCloudPub = this->create_publisher<pcl::PointCloud<pcl::PointXYZ>>("laserCloud", 10);
+    rclcpp::Publisher<std_msgs::msg::UInt8MultiArray>::SharedPtr obstacles;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ROSCloud;
+
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr camera1;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr camera2;
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser;
+
 };
 
 
 int main(int argc, char** argv)
 {
     // Initilizing a ros node.
-    ros::init(argc, argv, "obstacleImageGeneration");
+    rclcpp::init(argc, argv);
 
     // Creating our MapCreation object.
-    MapCreation points;
+    // MapCreation points;
+
+    rclcpp::spin(std::make_shared<MapCreation>());
+    rclcpp::shutdown();
+    return 0;
 }
 
 
-MapCreation::MapCreation()
+MapCreation::MapCreation() : Node("obstacleImageGeneration")
 {
     int i = 0, j = 0;
 
@@ -105,8 +120,8 @@ MapCreation::MapCreation()
     cStart = std::chrono::high_resolution_clock::now();
 
     // Configuring our custom data type to be a 2D array the size of our course.
-    imageArray.layout.dim.push_back(std_msgs::MultiArrayDimension());
-    imageArray.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    imageArray.layout.dim.push_back(std_msgs::msg::MultiArrayDimension());
+    imageArray.layout.dim.push_back(std_msgs::msg::MultiArrayDimension());
     imageArray.layout.dim[0].label = "height";
     imageArray.layout.dim[1].label = "width";
     imageArray.layout.dim[0].size = height;
@@ -118,11 +133,16 @@ MapCreation::MapCreation()
     // Setting up the vector of the image to be the size of the image.
     imageVec.resize(width * height, 255);
 
+    // Setting up Publishers
+    ROSCloud = this->create_publisher<sensor_msgs::msg::PointCloud2>("obstacleList", 10);
+    obstacles = this->create_publisher<std_msgs::msg::UInt8MultiArray>("obstacleImage", 10);
+
     // Setting up the publishers and subscribers.
-    ros::Subscriber camera1 = node.subscribe("camera1Post", 10, &MapCreation::camera1Callback, this);
-    ros::Subscriber camera2 = node.subscribe("camera2Post", 10, &MapCreation::camera2Callback, this);
-    ros::Subscriber laser = node.subscribe("scan", 10, &MapCreation::laserCallback, this);
-    ros::spin();
+    camera1 = this->create_subscription<sensor_msgs::msg::PointCloud2>("camera1Post", 10, std::bind(&MapCreation::camera1Callback, this, _1));
+    camera2 = this->create_subscription<sensor_msgs::msg::PointCloud2>("camera2Post", 10, std::bind(&MapCreation::camera2Callback, this, _1));
+    laser = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", 10, std::bind(&MapCreation::laserCallback, this, _1));
+    // ros::spin();
+    // rclcpp::spin(node);
 }
 
 
@@ -133,7 +153,7 @@ MapCreation::~MapCreation()
 }
 
 
-void MapCreation::camera1Callback(sensor_msgs::PointCloud2 cloudIn)
+void MapCreation::camera1Callback(sensor_msgs::msg::PointCloud2 cloudIn)
 {
     // Storing the point cloud in the class.
     camera1Cloud = cloudIn;
@@ -143,7 +163,7 @@ void MapCreation::camera1Callback(sensor_msgs::PointCloud2 cloudIn)
 }
 
 
-void MapCreation::camera2Callback(sensor_msgs::PointCloud2 cloudIn)
+void MapCreation::camera2Callback(sensor_msgs::msg::PointCloud2 cloudIn)
 {
     // Storing the point cloud in the class.
     camera2Cloud = cloudIn;
@@ -153,7 +173,7 @@ void MapCreation::camera2Callback(sensor_msgs::PointCloud2 cloudIn)
 }
 
 
-void MapCreation::laserCallback(sensor_msgs::LaserScan laserIn)
+void MapCreation::laserCallback(sensor_msgs::msg::LaserScan laserIn)
 {
     int i = 0;
     pcl::PointXYZ point;
@@ -161,8 +181,8 @@ void MapCreation::laserCallback(sensor_msgs::LaserScan laserIn)
     // std::cout << "AngleMin: " << laserIn.angle_min << " Angle Max: " << laserIn.angle_max << std::endl;
     // std::cout << "Angle Increment: " << laserIn.angle_increment << std::endl;
     // Obtaining the transformation from frame "laser" to frame "map".
-    if(!tfListener.waitForTransform("map", "laser", laserIn.header.stamp + ros::Duration().fromSec(laserIn.ranges.size()*laserIn.time_increment), ros::Duration(1.0)))
-        return;
+    // if(!tfListener->waitForTransform("map", "laser", laserIn.header.stamp + rclcpp::Duration().seconds(laserIn.ranges.size()*laserIn.time_increment), rclcpp::Duration(1, 0)))
+    //    return;
 
     for(i = 0; i < laserMinVal; i++)
         laserIn.ranges[i] = 200000;
@@ -171,12 +191,12 @@ void MapCreation::laserCallback(sensor_msgs::LaserScan laserIn)
         laserIn.ranges[i] = 200000; 
 
     // Transforming the laser scan to a point cloud in map's coordinate frame.
-    projector.transformLaserScanToPointCloud("map", laserIn, laserCloud, tfListener);
+    projector.transformLaserScanToPointCloud("map", laserIn, laserCloud, *tfBuffer);
 
     // Coneverting the sensor_msgs::Pointcloud2 into a pcl::PointCloud.
     pcl::fromROSMsg(laserCloud, pclLaserCloud);
 
-    for(i = 0; i < pclLaserCloud.width * pclLaserCloud.height; i++)
+    for(i = 0; i < int(pclLaserCloud.width * pclLaserCloud.height); i++)
     {
         point = pclLaserCloud.points[i];
         if(point.z < 0.2)
@@ -193,7 +213,7 @@ void MapCreation::laserCallback(sensor_msgs::LaserScan laserIn)
     createList();
 
     // Publishing the laser point cloud for debugging.
-    laserCloudPub.publish(pclLaserCloud);
+    // laserCloudPub->publish(pclLaserCloud);
 }
 
 
@@ -206,7 +226,7 @@ void MapCreation::createList() {
     int fadeSpeed = 17;
 
     // Fading out obstacles that we are no longer seeing.
-    /*if(std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - cStart) >= std::chrono::duration<double>(0.25))
+    if(std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - cStart) >= std::chrono::duration<double>(0.25))
     {
         for(i = 0; i < height; i++)
         {
@@ -221,7 +241,7 @@ void MapCreation::createList() {
         }
         // Resetting the clock.
         cStart = std::chrono::high_resolution_clock::now();
-    }*/
+    }
 
 
     // Combining all the point clouds into one point cloud.
@@ -231,10 +251,10 @@ void MapCreation::createList() {
 
     pcl::toROSMsg(obstacleCloud, rosCloud);
 
-    ROSCloud.publish(rosCloud);
+    ROSCloud->publish(rosCloud);
 
     // Finding the size of the cloud.
-    /*cloudSize = obstacleCloud.width * obstacleCloud.height;
+    cloudSize = obstacleCloud.width * obstacleCloud.height;
     //cloudSize = pclLaserCloud.width * pclLaserCloud.height;
 
     for( i = 0; i < cloudSize; i++)
@@ -260,15 +280,16 @@ void MapCreation::createList() {
         // Setting that point to 0 to indicate there is an obstacle there.
         course[y][x] = 0;
         imageVec[(y*width) + x] = 0;
-    }*/
+    }
 
     // Displaying the 2D array for debugging.
-    // cv::Mat image = cv::Mat(height, width, CV_8U, *course);
-    // cv::imshow("Image", image);
-    // cv::waitKey(1);
-
+    cv::Mat image = cv::Mat(height, width, CV_8U, *course);
+    cv::imshow("Image", image);
+    cv::waitKey(1);
+    
     // Publishing our image to the ros topic: obstacleImage.
-    //imageArray.data = imageVec;
-    //obstacles.publish(imageArray);
+    imageArray.data = imageVec;
+    obstacles->publish(imageArray);
+
     return;
 }
