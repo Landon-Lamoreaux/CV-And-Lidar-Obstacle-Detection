@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import rospy
+import rclpy
  
 # Because of transformations
 import tf_conversions
@@ -8,30 +8,48 @@ import math
 import tf2_ros
 import geometry_msgs.msg
 import sensor_msgs.msg as sensor_msgs
-from rospy.numpy_msg import numpy_msg
+from rclpy.numpy_msg import numpy_msg
  
-#camera1 = rospy.Publisher('leftCamera', numpy_msg(sensor_msgs.PointCloud2), queue_size=1)
+#camera1 = rclpy.Publisher('leftCamera', numpy_msg(sensor_msgs.PointCloud2), queue_size=1)
 
-def tf_pointcloud(msg):
+# TODO MTK: I am increadibly unhappy about this
+t = geometry_msgs.msg.TransformStamped()
+rclpy.init()
+node = rclpy.create_node('baseLinkUpdater')
+
+initLat = 0
+initLon = 0
+initAlt = 0
+
+
+def tf_update_translation(msg :sensor_msgs.NavSatFix):
     br = tf2_ros.TransformBroadcaster()
-    t = geometry_msgs.msg.TransformStamped()
     
     #cloud = pcl.PointCloud()
     #pclCloud = pcl.pcl_conversion.toPCL(msg, cloud)
     
     # Give the transform being published a timestamp
-    t.header.stamp = rospy.Time.now()
+    t.header.stamp = node.get_clock.now()
      
-    # Set the name of the parent link
-    t.header.frame_id = "map"
      
-    # Set the name of the child node
-    t.child_frame_id = "base_link"
-     
+    if(initLat == 0):
+        initLat = msg.latitude
+        initLon = msg.longitude
+        initAlt = msg.altitude
+
     # sets transform
-    t.transform.translation.x = 0.5
-    t.transform.translation.y = 0.3
-    t.transform.translation.z = 0.1
+    t.transform.translation.x = msg.latitude - initLat
+    t.transform.translation.y = msg.longitude - initLon
+    t.transform.translation.z = msg.altitude - initAlt
+    br.sendTransform(t)
+
+
+def tf_update_rotation(msg):
+    br = tf2_ros.TransformBroadcaster()
+
+    # Give the transform being published a timestamp
+    t.header.stamp = node.get_clock.now()
+     
     euler = tf_conversions.transformations.euler_from_quaternion([msg.quaternion.x, msg.quaternion.y, msg.quaternion.z, msg.quaternion.w])
     euler = list(euler)
     euler[0] = euler[0] + math.pi
@@ -49,7 +67,12 @@ def tf_pointcloud(msg):
     br.sendTransform(t)
  
 if __name__ == '__main__':
-    rospy.init_node('baseLinkUpdater')
+    # Set the name of the parent link
+    t.header.frame_id = "map"
+     
+    # Set the name of the child node
+    t.child_frame_id = "base_link"
   
-    rospy.Subscriber('quat', geometry_msgs.msg.QuaternionStamped, tf_pointcloud)
-    rospy.spin()
+    node.create_subscription(geometry_msgs.msg.QuaternionStamped, 'quat', tf_update_rotation)
+    node.create_subscription(sensor_msgs.NavSatFix, 'gps_fix', tf_update_translation)
+    rclpy.spin()

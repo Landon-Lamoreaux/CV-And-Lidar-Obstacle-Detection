@@ -1,5 +1,12 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(transforms)
+
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -7,17 +14,18 @@ project(transforms)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  tf2_ros
-  sensor_msgs
-  geometry_msgs
-  tf2
-  tf2_msgs
-  tf2_sensor_msgs
-)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp)
+find_package(rclpy)
+find_package(tf2_ros)
+find_package(tf2)
+find_package(tf2_msgs)
+find_package(tf2_sensor_msgs)
+find_package(tf2_geometry_msgs)
+find_package(rosidl_default_generators REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -108,12 +116,12 @@ find_package(catkin REQUIRED COMPONENTS
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
+# catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES transforms
 #  CATKIN_DEPENDS roscpp rospy std_msgs
 #  DEPENDS system_lib
-)
+# )
 
 ###########
 ## Build ##
@@ -121,7 +129,8 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(${catkin_INCLUDE_DIRS})
+#include_directories(${catkin_INCLUDE_DIRS})
+include_directories(include)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -209,4 +218,20 @@ include_directories(${catkin_INCLUDE_DIRS})
 # catkin_add_nosetests(test)
 
 add_executable(listener src/listener.cpp)
-target_link_libraries(listener ${catkin_LIBRARIES})
+ament_target_dependencies(listener
+  rclcpp
+  rclpy
+  std_msgs
+  tf2_ros
+  sensor_msgs
+  geometry_msgs
+  tf2
+  tf2_msgs
+  tf2_sensor_msgs
+  tf2_geometry_msgs)
+
+install(TARGETS listener
+  DESTINATION lib/${PROJECT_NAME})
+ament_export_include_directories(include)
+ament_export_dependencies(std_msgs)
+ament_package()
