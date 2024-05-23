@@ -1,6 +1,6 @@
 # Obstacle Image
 
-Need to install the pcl library and pyrealsense to get everything to work:
+You will need to install the pcl library and pyrealsense to get everything to work:
 
 ## pcl
 `sudo apt install ros-humble-pcl-ros`
